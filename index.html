@@ -3672,7 +3672,7 @@ const STORAGE_OK = (()=>{ try{ localStorage.setItem("__t","1"); localStorage.rem
 function avisoAmbiente(){
   const el=document.getElementById("avisoAmb"); const p=[];
   if(DENTRO_DE_JANELA) p.push("⚠️ A plataforma está aberta dentro da app do Claude (ou de outra pré-visualização). Aí o botão de gerar e os de guardar ficheiros não funcionam.");
-  if(DENTRO_DE_JANELA) p.push(NUVEM ? "Abre-a no <b>Google Chrome</b> ou no <b>Microsoft Edge</b> pelo link <b>https://racva03.github.io/culto-iebovar/</b>. Os dados são os mesmos em todo o lado." : "Abre o ficheiro <b>Plataforma-Culto-IEBOvar.html</b> no <b>Google Chrome</b> ou no <b>Microsoft Edge</b> (botão direito → <b>Abrir com</b> → Google Chrome).");
+  if(DENTRO_DE_JANELA) p.push(NUVEM ? "Abre-a no <b>Google Chrome</b> ou no <b>Microsoft Edge</b> pelo link <b>https://ppt.iebovar.pt</b>. Os dados são os mesmos em todo o lado." : "Abre o ficheiro <b>Plataforma-Culto-IEBOvar.html</b> no <b>Google Chrome</b> ou no <b>Microsoft Edge</b> (botão direito → <b>Abrir com</b> → Google Chrome).");
   if(!STORAGE_OK) p.push("⚠️ Este sítio não deixa guardar dados: o que escreveres perde-se ao fechar. Antes de fechares, usa <b>📋 Copiar todos os dados</b> e depois <b>📥 Colar dados</b> no Chrome.");
   el.innerHTML=p.join("<br><br>"); el.hidden=!p.length;
 }
