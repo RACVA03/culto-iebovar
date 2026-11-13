@@ -3457,10 +3457,27 @@ function porLocal(k,v){ try{ if(v==null) localStorage.removeItem(k); else localS
 try{ NV.pin=sessionStorage.getItem("iebovar-pin")||lerLocal("iebovar-pin"); }catch(e){}
 NV.nome=lerLocal("iebovar-nome")||"";
 async function api(caminho, opts){
-  const r=await fetch(NUVEM.url+caminho, Object.assign({}, opts, { headers: Object.assign({ apikey:NUVEM.chave, "Content-Type":"application/json" }, (opts||{}).headers||{}) }));
-  const txt=await r.text(); let j=null; try{ j=txt?JSON.parse(txt):null; }catch(e){}
-  if(!r.ok){ throw new Error((j&&(j.message||j.erro||j.hint))||("erro "+r.status)); }
+  const ctl=new AbortController(), tempo=setTimeout(()=>ctl.abort(), 20000);
+  const r=await fetch(NUVEM.url+caminho, Object.assign({ signal:ctl.signal }, opts, { headers: Object.assign({ apikey:NUVEM.chave, "Content-Type":"application/json" }, (opts||{}).headers||{}) }));
+  const txt=await r.text(); clearTimeout(tempo); let j=null; try{ j=txt?JSON.parse(txt):null; }catch(e){}
+  if(!r.ok){ const er=new Error((j&&(j.message||j.erro||j.hint))||("erro "+r.status)); er.status=r.status; er.texto=txt; throw er; }
   return j;
+}
+// ---------------- base adormecida (o plano gratuito do Supabase pausa o projeto após ~1 semana sem uso)
+const CONTACTO_BASE = "a Beatriz";   // quem reativa a base de dados
+let avisouAdormecida=false;
+async function haInternet(){
+  try{ await fetch("https://www.gstatic.com/generate_204?"+Date.now(), { mode:"no-cors", cache:"no-store" }); return true; }catch(e){ return false; }
+}
+async function verSeAdormeceu(e){
+  if(!NUVEM) return;
+  const st=e&&e.status;
+  // erros de PIN/dados (4xx) não são pausa; pausa = servidor não responde, 5xx ou 540 "project paused"
+  if(st && st<500 && !/paused|pausad/i.test(String(e.texto||e.message))) return;
+  if(navigator.onLine===false || !(await haInternet())) return;   // é a internet de quem está a usar
+  NV.adormecida=true; mostrarNuvem();
+  if(avisouAdormecida) return; avisouAdormecida=true;
+  dialogo(`😴 A base de dados adormeceu.\n\nIsto acontece quando a plataforma fica cerca de uma semana sem ser usada. Não se perdeu nada.\n\nEntra em contacto com ${CONTACTO_BASE} para a acordar.\n\nEntretanto podes continuar a preencher e a gerar o PowerPoint: fica guardado neste computador e vai para a base partilhada quando ela voltar.`, {sim:"Percebi", soOk:true});
 }
 const rpc = (nome, args) => api("/rest/v1/rpc/"+nome, { method:"POST", body: JSON.stringify(args||{}) });
 async function funcImagens(corpo){
@@ -3497,7 +3514,7 @@ async function carregarNuvem(silencioso){
   if(!NUVEM) return false;
   try{
     const r=await api("/rest/v1/estado?id=eq.iebovar&select=dados,versao,atualizado_em,atualizado_por");
-    NV.ligado=true;
+    NV.ligado=true; NV.adormecida=false;
     if(r && r[0]){
       if(r[0].versao!==NV.versao && !NV.pendente){
         NV.versao=r[0].versao; E=daNuvem(r[0].dados);
@@ -3507,7 +3524,7 @@ async function carregarNuvem(silencioso){
       NV.ultimaInfo = r[0].atualizado_por && r[0].atualizado_por!=="inicial" ? `Última alteração: ${r[0].atualizado_por}, ${new Date(r[0].atualizado_em).toLocaleString("pt-PT",{weekday:"short",hour:"2-digit",minute:"2-digit",day:"numeric",month:"short"})}` : "";
     }
     try{ NV.temPin=await rpc("tem_pin"); }catch(e){}
-  }catch(e){ NV.ligado=false; }
+  }catch(e){ NV.ligado=false; await verSeAdormeceu(e); }
   mostrarNuvem();
   return NV.ligado;
 }
@@ -3541,7 +3558,8 @@ function mostrarNuvem(){
   const el=document.getElementById("nuvem"); if(!el) return;
   if(!NUVEM){ el.hidden=true; return; }
   let estado, cor;
-  if(!NV.ligado){ estado="Sem ligação à base partilhada: a trabalhar só neste computador."; cor="#B45309"; }
+  if(NV.adormecida){ estado=`A base de dados adormeceu. Contacta ${CONTACTO_BASE} para a acordar (entretanto fica tudo guardado neste computador).`; cor="#B45309"; }
+  else if(!NV.ligado){ estado="Sem ligação à base partilhada: a trabalhar só neste computador."; cor="#B45309"; }
   else if(NV.temPin===false){ estado="Ainda não há PIN. Cria-o em Definições → PIN da igreja para começar a partilhar."; cor="#B45309"; }
   else if(!NV.pin){ estado = NV.pendente ? "Tens alterações por gravar: introduz o PIN para as gravar na base partilhada." : "Só leitura. Para alterar, introduz o PIN."; cor = NV.pendente?"#B91C1C":"#5B6B85"; }
   else if(NV.aGravar){ estado="A gravar…"; cor="#1D64B4"; }
@@ -4261,7 +4279,7 @@ if(NUVEM){
   msg("A ligar à base partilhada…");
   carregarNuvem(false).then(ok=>{
     render(); plano(); renderHist(); mostrarLogo();
-    msg(ok ? "Ligado à base partilhada. Tudo o que escreves fica disponível para quem tiver o link." : "Sem ligação à base partilhada: estás a trabalhar só neste computador.", ok?"ok":"erro");
+    msg(ok ? "Ligado à base partilhada. Tudo o que escreves fica disponível para quem tiver o link." : (NV.adormecida ? `A base de dados adormeceu: contacta ${CONTACTO_BASE}.` : "Sem ligação à base partilhada: estás a trabalhar só neste computador."), ok?"ok":"erro");
   });
   // vai buscar alterações de outras pessoas de minuto a minuto (se não estiveres a meio de alterações)
   setInterval(()=>{ if(!NV.pendente && !NV.aGravar && document.getElementById("modal").hidden) carregarNuvem(true); }, 60000);
