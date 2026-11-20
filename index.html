@@ -3896,7 +3896,7 @@ const SEC = {
       <div class="lin"><div>${inp(p+".titulo","Título","Em destaque",null,true)}</div><div class="curto">${inp(p+".data","Data / quando","3 de maio")}</div></div>
       ${txt(p+".texto","Texto",null,null,"",true)}
       <div class="imgAviso">${it.imagem?`<img src="${it.imagem}" alt="Imagem do aviso">`:`<div class="vazio">Sem imagem<br>(opcional)</div>`}
-        <div class="acoes" style="gap:6px"><button class="mini" data-imgaviso="${p}">📷 ${it.imagem?"Trocar imagem":"Pôr imagem"}</button>${NUVEM?`<button class="mini" data-iaaviso="${p}">✨ Criar com IA</button>`:""}${it.imagem?`<button class="mini del" data-rmimg="${p}">✕ Tirar imagem</button>`:""}</div>
+        <div class="acoes" style="gap:6px"><button class="mini" data-imgaviso="${p}">📷 ${it.imagem?"Trocar imagem":"Pôr imagem"}</button>${it.imagem?`<button class="mini del" data-rmimg="${p}">✕ Tirar imagem</button>`:""}</div>
       </div>`, {titulo:"",data:"",texto:""}, "Adicionar aviso")}
     <input type="file" id="fImgAviso" accept="image/*" hidden>
     ${inp("semana.avisos.rodape","Linha final (opcional)","Ex.: Ora pelos irmãos em preparação para o batismo")}
@@ -3933,13 +3933,13 @@ const SEC = {
     <h2>Logótipo e fotos</h2>
     <p class="dica">As fotos vão rodando pelos slides de Boas-vindas e Oração. São reduzidas automaticamente.</p>
     <div class="fotos">${(E.config.fotos||[]).map((f,i)=>`<div><img src="${f}"><button class="mini del" data-rmfoto="${i}">✕</button></div>`).join("")}</div>
-    <div class="acoes" style="margin-top:8px"><button class="btn2" id="addFoto">📷 Adicionar fotos</button>${NUVEM?`<button class="btn2" data-iafoto="1">✨ Criar foto com IA</button>`:""}<button class="btn2" id="trocaLogo">Trocar logótipo</button></div>
+    <div class="acoes" style="margin-top:8px"><button class="btn2" id="addFoto">📷 Adicionar fotos</button><button class="btn2" id="trocaLogo">Trocar logótipo</button></div>
     <input type="file" id="fFoto" accept="image/*" multiple hidden><input type="file" id="fLogo" accept="image/png" hidden>
     <h2>Biblioteca de louvores</h2>
     <p class="dica">Os louvores guardados aqui aparecem em <b>📚 Escolher da biblioteca</b>, na aba Louvores. Depois de escrever, carrega em <b>💾 Guardar</b>.</p>
     ${lista("config.biblioteca", it=>esc(it.titulo||"Louvor novo")+(it.artista?" · "+esc(it.artista):""), p=>`<div class="lin"><div>${inp(p+".titulo","Título","Ex.: Alívio")}</div><div>${inp(p+".artista","Cantor / banda")}</div></div>${txt(p+".letra","Letra",null,null,"letra")}<button class="btn2 prim" data-okbib="${p}" style="margin-top:8px">💾 Guardar este louvor</button>`, {titulo:"",artista:"",letra:""}, "Adicionar à biblioteca")}
     ${NUVEM?`<h2>PIN da igreja</h2>
-    <p class="dica">Quem tiver o link vê a plataforma; para alterar ou gerar imagens é preciso o PIN. ${NV.temPin?"Já existe um PIN.":"<b>Ainda não existe PIN: cria-o agora.</b>"}</p>
+    <p class="dica">Quem tiver o link vê a plataforma; para alterar é preciso o PIN. ${NV.temPin?"Já existe um PIN.":"<b>Ainda não existe PIN: cria-o agora.</b>"}</p>
     <button class="btn2 prim" id="definirPin">🔑 ${NV.temPin?"Mudar PIN":"Criar PIN"}</button>`:""}
     <h2>Recomeçar</h2>
     <button class="btn2" id="reset">↺ Repor tudo como veio</button>`],
@@ -4167,8 +4167,6 @@ document.addEventListener("click", e=>{
   if(t.dataset.tab){ tab=t.dataset.tab; render(); document.getElementById("centro").scrollTop=0; return; }
   if(t.dataset.imgaviso){ imgDestino=t.dataset.imgaviso; document.getElementById("fImgAviso").click(); return; }
   if(t.dataset.rmimg){ delete get(E,t.dataset.rmimg).imagem; render(); guardar(); return; }
-  if(t.dataset.iaaviso){ const p=t.dataset.iaaviso, it=get(E,p)||{}; criarComIA(`${it.titulo||""} ${it.texto||""}`.trim(), "16:9").then(url=>{ if(url){ get(E,p).imagem=url; render(); guardar(); } }); return; }
-  if(t.dataset.iafoto){ criarComIA("", "16:9").then(url=>{ if(url){ E.config.fotos.push(url); render(); guardar(); } }); return; }
   if(t.dataset.add){ const arr=get(E,t.dataset.add)||[]; arr.push(JSON.parse(t.dataset.novo)); set(E,t.dataset.add,arr); render(); guardar(); return; }
   if(t.dataset.rm){ const [p,i]=t.dataset.rm.split("|"); perguntar("Remover este item?").then(ok=>{ if(!ok) return; get(E,p).splice(+i,1); render(); guardar(); }); return; }
   if(t.dataset.mv){ const [p,i,d]=t.dataset.mv.split("|"); const a=get(E,p), j=+i+ +d; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; render(); guardar(); return; }
@@ -4226,14 +4224,6 @@ async function imagemPronta(dataUrl){
   if(!NUVEM || !NV.pin) return dataUrl;
   try{ const m=dataUrl.match(/^data:(image\/\w+);base64,(.*)$/); msg("A enviar a imagem…"); const url=await funcImagens({acao:"carregar", tipo:m[1], dados:m[2]}); msg("Imagem guardada na base partilhada.","ok"); return url; }
   catch(e){ msg("A imagem ficou só neste computador ("+e.message+").","erro"); return dataUrl; }
-}
-async function criarComIA(sugestao, proporcao){
-  if(!NV.pin && !(await pedirPin())) return null;
-  const desc=await dialogo("Descreve a imagem que queres (ex.: \"família a entrar numa igreja ao fim da tarde, luz quente, estilo fotografia\"). Não escrevas texto para aparecer na imagem.", {sim:"✨ Criar imagem", area:sugestao||""});
-  if(!desc||desc.trim().length<5) return null;
-  msg("A criar a imagem com IA… (pode demorar até 30 segundos)");
-  try{ const url=await funcImagens({acao:"gerar", descricao:desc.trim(), proporcao}); msg("Imagem criada.","ok"); return url; }
-  catch(e){ msg("Não consegui criar a imagem.","erro"); avisar("Não consegui criar a imagem:\n\n"+e.message); return null; }
 }
 function ligarFicheiros(){
   const dp=document.getElementById("definirPin"); if(dp) dp.onclick=definirPin;
