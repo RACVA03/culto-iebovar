@@ -163,6 +163,7 @@ ol.ordem .mini:disabled{opacity:.35;cursor:default}
 .desligado{border:1.5px dashed var(--linha);border-radius:12px;padding:16px;color:var(--mut);font-size:14px;text-align:center;margin-top:10px}
 @media (max-width:1180px){body{flex-wrap:wrap;overflow:auto;height:auto}#centro{height:auto;flex:1 1 500px}#lateral{width:100%;flex:1 1 100%;height:auto;border-left:0}#nav{height:auto;min-height:100vh}}
 @media (max-width:760px){#nav{width:100%;flex:1 1 100%;min-height:0}#tabs{flex-direction:row;flex-wrap:wrap}#tabs .grupo{display:none}#centro{padding:14px}#centro .folha{padding:18px}}
+.colarmsg{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--azul-claro,#eef3ff);border:1px dashed #9db4e6;border-radius:12px;padding:12px 14px;margin-bottom:14px}.colarmsg .dica{flex:1;min-width:220px}
 </style>
 </head>
 <body>
@@ -3847,6 +3848,7 @@ const SEC = {
       {titulo:"",artista:"",momento:"antes",letra:""}, "Adicionar louvor novo")}`],
 
   mensagem: ["Mensagem", () => `
+    <div class="colarmsg"><button class="btn2 prim" id="colarMsg">📋 Colar o texto do pastor</button><span class="dica" style="margin:0">Cola o resumo que o pastor manda e a plataforma separa o título, o texto bíblico, a introdução, os pontos e a conclusão pelos campos. Depois é só conferir.</span></div>
     <div class="prev" id="prevMsg">
       <div class="acoes" style="justify-content:space-between"><b style="font-size:14px">👁 Como vai ficar no PowerPoint</b><span class="dica" id="prevEstado" style="margin:0">A desenhar…</span></div>
       <div class="grelha" id="prevGrelha"></div>
@@ -4202,6 +4204,21 @@ document.addEventListener("click", e=>{
     const w=window.open(url,"_blank"); if(w){ try{ w.opener=null; }catch(e){} } else avisar("O browser bloqueou a janela nova. Permite pop-ups para esta página e tenta outra vez.");
     return;
   }
+  if(t.id==="colarMsg"){
+    dialogo("Cola aqui o texto que o pastor mandou (Ctrl+V). Eu separo o título, o texto bíblico, a introdução, os pontos e a conclusão.", {sim:"Separar", area:""}).then(async txt=>{
+      if(!txt||txt.trim().length<20) return;
+      const r=lerMensagemPastor(txt), M=E.semana.mensagem=E.semana.mensagem||{};
+      if(!r.titulo || !r.pontos.length){ avisar("Não consegui encontrar "+(r.titulo?"os pontos":"o título")+" neste texto.\n\nOs pontos devem começar por um número (1., 2., 3.…). Podes preencher à mão nos campos abaixo."); return; }
+      const temAlgo = M.titulo || (M.pontos||[]).some(p=>p.titulo||p.texto) || M.introducao;
+      if(temAlgo && !(await perguntar("Já há uma mensagem escrita. Substituir pelo texto colado?\n\n(O pregador, o versículo-tema e o apelo ficam como estão.)"))) return;
+      Object.assign(M, {titulo:r.titulo, referencia:r.referencia||M.referencia||"", introTitulo:"", introducao:r.introducao, introDestaque:"", pontos:r.pontos, conclusao:Object.assign({}, M.conclusao, {titulo:"", texto:r.conclusao.texto, destaque:r.conclusao.destaque})});
+      render(); guardar();
+      const partes=[r.referencia?"texto bíblico":"", r.introducao?"introdução":"", r.pontos.length+" ponto"+(r.pontos.length>1?"s":""), (r.conclusao.texto||r.conclusao.destaque)?"conclusão":""].filter(Boolean);
+      toast("Mensagem separada: título, "+partes.join(", ")+". Confere os campos.");
+      if(!r.referencia) msg("Não encontrei o texto bíblico base: escreve-o no campo.","erro");
+    });
+    return;
+  }
   if(t.dataset.colar){
     const p=t.dataset.colar, it=get(E,p)||{};
     dialogo(`Cola aqui a letra de "${it.titulo||"louvor"}" (Ctrl+V). Eu limpo o texto, separo as estrofes, marco o refrão e guardo na biblioteca.`, {sim:"Arrumar", area:""}).then(txt=>{
@@ -4224,6 +4241,48 @@ async function imagemPronta(dataUrl){
   if(!NUVEM || !NV.pin) return dataUrl;
   try{ const m=dataUrl.match(/^data:(image\/\w+);base64,(.*)$/); msg("A enviar a imagem…"); const url=await funcImagens({acao:"carregar", tipo:m[1], dados:m[2]}); msg("Imagem guardada na base partilhada.","ok"); return url; }
   catch(e){ msg("A imagem ficou só neste computador ("+e.message+").","erro"); return dataUrl; }
+}
+// ---------------- mensagem colada (texto do pastor → campos)
+const MAIUSC_FIXAS = ["Deus","Senhor","Jesus","Cristo","Espírito","Santo","Pai","Filho","Bíblia","Evangelho","Elias","Tiago","Paulo","Pedro","João","Israel"];
+function semGritar(t){
+  // "A FÉ É VISTA NA ORAÇÃO" → "A fé é vista na oração" (só quando está tudo em maiúsculas)
+  if(!t || t!==t.toUpperCase() || !/[A-ZÀ-Ý]{3}/.test(t)) return t;
+  let r=t.toLowerCase().replace(/^\s*\S/, c=>c.toUpperCase());
+  for(const w of MAIUSC_FIXAS) r=r.replace(new RegExp("(^|[^\\p{L}])"+w.toLowerCase()+"(?![\\p{L}])","gu"), (m,a)=>a+w);
+  return r;
+}
+function lerMensagemPastor(texto){
+  const linhas=String(texto||"").replace(/\r/g,"").split("\n").map(l=>l.replace(/[ \t ]+/g," ").trim());
+  const REF=/^((?:[1-3]\s?)?[A-ZÀ-Ý][a-zà-ýA-ZÀ-Ý]+\.?)\s+\d+(?::\d+[a-z]?(?:\s?[-–]\s?\d+[a-z]?)?(?:,\s?\d+[a-z]?(?:[-–]\d+[a-z]?)?)*)?\.?$/;
+  const BALA=/^[•●▪◦·\-–*]\s*/;
+  const INTRO=/^introdu[cç][aã]o\b\s*[.:–-]?\s*(.*)$/i, CONC=/^(?:em\s+)?conclus[aã]o\b\s*[.:–-]?\s*(.*)$/i;
+  const PONTO=/^(\d{1,2}|[IVX]{1,4})\s*[.)ºª]\s*(.+)$/;
+  const M={titulo:"",referencia:"",introducao:"",pontos:[],conclusao:{texto:"",destaque:""}};
+  let zona="topo", topo=[], intro=[], conc=[], concBalas=[], ponto=null;
+  const juntar=a=>a.join("\n").replace(/\n{3,}/g,"\n\n").trim();
+  for(const l of linhas){
+    if(!l) { if(zona==="intro") intro.push(""); else if(zona==="conc") conc.push(""); else if(ponto) ponto.linhas.push(""); continue; }
+    let m;
+    if(zona!=="conc" && (m=l.match(CONC)) && m[1].length<200){ zona="conc"; if(m[1]) conc.push(m[1]); continue; }
+    if(zona==="topo" && !M.titulo && !REF.test(l)){ M.titulo=semGritar(l.replace(/[.:]$/,"")); continue; }
+    if(zona==="topo" && !M.referencia && REF.test(l)){ M.referencia=l.replace(/\.$/,""); continue; }
+    if((zona==="topo"||zona==="intro") && (m=l.match(INTRO)) && l.length<60+m[1].length){ zona="intro"; if(m[1]) intro.push(m[1]); continue; }
+    if(zona!=="conc" && (m=l.match(PONTO))){
+      let tit=m[2].trim(), ref="";
+      const r=tit.match(/\s*\(([^()]*\d[^()]*)\)\s*[.:]?\s*$/);
+      if(r){ ref=r[1].trim(); tit=tit.slice(0,r.index).trim(); }
+      ponto={titulo:semGritar(tit.replace(/[.:]$/,"")), referencia:ref, linhas:[], balas:[]};
+      M.pontos.push(ponto); zona="pontos"; continue;
+    }
+    if(zona==="conc"){ if(BALA.test(l)) concBalas.push(l.replace(BALA,"")); else conc.push(l); continue; }
+    if(zona==="pontos"){ if(BALA.test(l)) ponto.balas.push(l.replace(BALA,"")); else ponto.linhas.push(l); continue; }
+    if(zona==="intro") { intro.push(l); continue; }
+    topo.push(l);   // texto antes da introdução e sem cabeçalho: conta como introdução
+  }
+  M.introducao=juntar(topo.concat(topo.length&&intro.length?[""]:[], intro));
+  M.pontos=M.pontos.map(p=>{ const o={titulo:p.titulo, texto:juntar(p.linhas), versiculos:[], estilo:"auto", itens:p.balas}; if(p.referencia) o.referencia=p.referencia; return o; });
+  M.conclusao={texto:juntar(conc), destaque:concBalas.join("\n")};
+  return M;
 }
 function ligarFicheiros(){
   const dp=document.getElementById("definirPin"); if(dp) dp.onclick=definirPin;
