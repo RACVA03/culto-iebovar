@@ -164,9 +164,38 @@ ol.ordem .mini:disabled{opacity:.35;cursor:default}
 @media (max-width:1180px){body{flex-wrap:wrap;overflow:auto;height:auto}#centro{height:auto;flex:1 1 500px}#lateral{width:100%;flex:1 1 100%;height:auto;border-left:0}#nav{height:auto;min-height:100vh}}
 @media (max-width:760px){#nav{width:100%;flex:1 1 100%;min-height:0}#tabs{flex-direction:row;flex-wrap:wrap}#tabs .grupo{display:none}#centro{padding:14px}#centro .folha{padding:18px}}
 .colarmsg{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--azul-claro,#eef3ff);border:1px dashed #9db4e6;border-radius:12px;padding:12px 14px;margin-bottom:14px}.colarmsg .dica{flex:1;min-width:220px}
+#entrada{position:fixed;inset:0;z-index:9000;background:linear-gradient(160deg,#0A3D7A 0%,#14213D 100%);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#entrada[hidden]{display:none}
+#entrada .caixa{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:30px 28px;width:100%;max-width:400px}
+#entrada img{height:58px;display:block;margin:0 auto 14px}
+#entrada h1{font-size:22px;text-align:center;margin:0 0 4px;color:var(--azul)}
+#entrada p.sub{text-align:center;color:var(--mut);font-size:14px;margin:0 0 20px;line-height:1.45}
+#entrada label{display:block;font-weight:600;font-size:14px;margin:12px 0 5px;color:var(--txt)}
+#entrada input[type=text],#entrada input[type=password]{width:100%;box-sizing:border-box;font-size:16px;padding:11px 12px;border:1.5px solid var(--linha);border-radius:10px}
+#entrada input:focus{outline:none;border-color:var(--azul2)}
+#entrada .lembrar{display:flex;gap:8px;align-items:center;font-weight:400;font-size:14px;margin-top:14px}
+#entrada button{width:100%;margin-top:18px;padding:13px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:var(--azul);color:#fff;cursor:pointer}
+#entrada button:disabled{opacity:.6;cursor:wait}
+#entrada .erroE{color:var(--erro);font-size:14px;margin-top:12px;line-height:1.45;min-height:1em}
+#entrada .ajuda{color:var(--mut);font-size:12.5px;text-align:center;margin-top:16px;line-height:1.45}
 </style>
 </head>
 <body>
+<div id="entrada" hidden role="dialog" aria-modal="true" aria-labelledby="entTit">
+  <form class="caixa" id="entForm" autocomplete="on">
+    <img id="entLogo" alt="IEB Ovar">
+    <h1 id="entTit">PowerPoint do Culto</h1>
+    <p class="sub">Igreja Evangélica Baptista de Ovar.<br>Para entrar, escreve o teu nome e o PIN da igreja.</p>
+    <label for="entNome">O teu nome</label>
+    <input type="text" id="entNome" autocomplete="name" maxlength="40" placeholder="Ex.: Maria">
+    <label for="entPin">PIN da igreja</label>
+    <input type="password" id="entPin" autocomplete="current-password">
+    <label class="lembrar"><input type="checkbox" id="entLembrar"> Lembrar neste computador (não marques num computador partilhado)</label>
+    <button type="submit" id="entBtn">Entrar</button>
+    <div class="erroE" id="entErro" role="alert"></div>
+    <p class="ajuda">Não sabes o PIN? Pede-o a quem gere a plataforma.</p>
+  </form>
+</div>
 <nav id="nav" aria-label="Secções">
   <div id="topo"><img id="logoTopo" alt="IEB Ovar"><div><h1>PowerPoint do Culto</h1><small>Preenche cada secção e gera</small></div></div>
   <div id="tabs"></div>
@@ -3592,7 +3621,7 @@ async function subirImagensPendentes(){
 async function carregarNuvem(silencioso){
   if(!NUVEM) return false;
   try{
-    const r=await api("/rest/v1/estado?id=eq.iebovar&select=dados,versao,atualizado_em,atualizado_por");
+    const um=await rpc("ler_estado",{pin:NV.pin||""}); const r=um?[um]:[];
     NV.ligado=true; NV.adormecida=false;
     if(r && r[0]){
       if(r[0].versao!==NV.versao && !NV.pendente){
@@ -3603,7 +3632,10 @@ async function carregarNuvem(silencioso){
       NV.ultimaInfo = r[0].atualizado_por && r[0].atualizado_por!=="inicial" ? `Última alteração: ${r[0].atualizado_por}, ${new Date(r[0].atualizado_em).toLocaleString("pt-PT",{weekday:"short",hour:"2-digit",minute:"2-digit",day:"numeric",month:"short"})}` : "";
     }
     try{ NV.temPin=await rpc("tem_pin"); }catch(e){}
-  }catch(e){ NV.ligado=false; await verSeAdormeceu(e); }
+  }catch(e){
+    if(/PIN/.test(e.message||"")){ esquecerPin(); mostrarEntrada("O PIN mudou ou deixou de ser válido. Escreve o PIN novo."); return false; }
+    NV.ligado=false; await verSeAdormeceu(e);
+  }
   mostrarNuvem();
   return NV.ligado;
 }
@@ -3646,10 +3678,48 @@ function mostrarNuvem(){
   else { estado="Tudo gravado na base partilhada."+(NV.ultimaInfo?" "+NV.ultimaInfo+".":""); cor="#15803D"; }
   el.hidden=false;
   el.innerHTML=`<b>Base partilhada</b><div style="display:flex;gap:10px;align-items:flex-start;margin-top:8px"><span style="width:10px;height:10px;border-radius:50%;background:${cor};margin-top:5px;flex:0 0 10px"></span><span style="font-size:13px;color:${cor};line-height:1.4">${estado}</span></div>
-    <div class="acoes" style="margin-top:8px;gap:8px">${NV.pin?`<span class="dica" style="margin:0">PIN ativo${NV.nome?" · "+esc(NV.nome):""}</span><button class="mini" id="sairPin">Sair</button>`:(NV.temPin?`<button class="btn2 prim" id="pedirPin">🔑 Introduzir PIN</button>`:"")}</div>`;
+    <div class="acoes" style="margin-top:8px;gap:8px">${NV.pin?`<span class="dica" style="margin:0">Entraste como ${esc(NV.nome||"alguém")}</span><button class="mini" id="sairPin">Sair</button>`:(NV.temPin?`<button class="btn2 prim" id="pedirPin">🔑 Introduzir PIN</button>`:"")}</div>`;
   const pp=document.getElementById("pedirPin"); if(pp) pp.onclick=pedirPin;
-  const sp=document.getElementById("sairPin"); if(sp) sp.onclick=()=>{ NV.pin=null; try{ sessionStorage.removeItem("iebovar-pin"); }catch(e){} porLocal("iebovar-pin",null); mostrarNuvem(); };
+  const sp=document.getElementById("sairPin"); if(sp) sp.onclick=async()=>{ if(NV.pendente && !(await perguntar("Ainda há alterações por gravar. Sair mesmo assim?\n\n(Ficam guardadas neste computador.)"))) return; esquecerPin(); location.reload(); };
 }
+function esquecerPin(){ NV.pin=null; try{ sessionStorage.removeItem("iebovar-pin"); }catch(x){} porLocal("iebovar-pin",null); }
+// ---------------- ecrã de entrada: sem nome e PIN não se vê nada
+let aoEntrar=null;
+function mostrarEntrada(erro){
+  const el=document.getElementById("entrada");
+  document.getElementById("entLogo").src=(E&&E.config&&E.config.logo)||PADRAO.config.logo;
+  document.getElementById("entNome").value=NV.nome||"";
+  document.getElementById("entPin").value="";
+  document.getElementById("entErro").textContent=erro||"";
+  el.hidden=false;
+  document.getElementById("centro").setAttribute("aria-hidden","true");
+  setTimeout(()=>document.getElementById(NV.nome?"entPin":"entNome").focus(),50);
+}
+async function tentarEntrar(ev){
+  ev.preventDefault();
+  const nome=document.getElementById("entNome").value.trim(), pin=document.getElementById("entPin").value.trim();
+  const erro=document.getElementById("entErro"), bt=document.getElementById("entBtn");
+  if(!nome){ erro.textContent="Escreve o teu nome."; document.getElementById("entNome").focus(); return; }
+  if(!pin){ erro.textContent="Escreve o PIN."; document.getElementById("entPin").focus(); return; }
+  bt.disabled=true; bt.textContent="A verificar…"; erro.textContent="";
+  let ok=false;
+  try{ ok=await rpc("verificar_pin",{pin}); }
+  catch(e){
+    bt.disabled=false; bt.textContent="Entrar";
+    await verSeAdormeceu(e);
+    erro.textContent = NV.adormecida ? `A base de dados adormeceu. Contacta ${CONTACTO_BASE} para a acordar e depois tenta outra vez.` : "Não consegui ligar à base de dados. Confirma a internet e tenta outra vez.";
+    return;
+  }
+  bt.disabled=false; bt.textContent="Entrar";
+  if(!ok){ erro.textContent="PIN errado. Tenta outra vez."; const p=document.getElementById("entPin"); p.value=""; p.focus(); return; }
+  NV.pin=pin; NV.nome=nome.slice(0,40); porLocal("iebovar-nome",NV.nome);
+  try{ sessionStorage.setItem("iebovar-pin",pin); }catch(e){}
+  if(document.getElementById("entLembrar").checked) porLocal("iebovar-pin",pin);
+  document.getElementById("entrada").hidden=true;
+  document.getElementById("centro").removeAttribute("aria-hidden");
+  if(aoEntrar){ const f=aoEntrar; aoEntrar=null; f(); } else carregarNuvem(true).then(()=>{ render(); plano(); renderHist(); mostrarLogo(); });
+}
+document.getElementById("entForm").addEventListener("submit", tentarEntrar);
 async function pedirPin(){
   const pin=await dialogo("PIN da igreja (pede-o a quem gere a plataforma):", {sim:"Entrar", area:""});
   if(!pin||!pin.trim()) return false;
@@ -3941,7 +4011,7 @@ const SEC = {
     <p class="dica">Os louvores guardados aqui aparecem em <b>📚 Escolher da biblioteca</b>, na aba Louvores. Depois de escrever, carrega em <b>💾 Guardar</b>.</p>
     ${lista("config.biblioteca", it=>esc(it.titulo||"Louvor novo")+(it.artista?" · "+esc(it.artista):""), p=>`<div class="lin"><div>${inp(p+".titulo","Título","Ex.: Alívio")}</div><div>${inp(p+".artista","Cantor / banda")}</div></div>${txt(p+".letra","Letra",null,null,"letra")}<button class="btn2 prim" data-okbib="${p}" style="margin-top:8px">💾 Guardar este louvor</button>`, {titulo:"",artista:"",letra:""}, "Adicionar à biblioteca")}
     ${NUVEM?`<h2>PIN da igreja</h2>
-    <p class="dica">Quem tiver o link vê a plataforma; para alterar é preciso o PIN. ${NV.temPin?"Já existe um PIN.":"<b>Ainda não existe PIN: cria-o agora.</b>"}</p>
+    <p class="dica">Para entrar na plataforma é preciso o PIN (quem só tem o link não vê nada). ${NV.temPin?"Já existe um PIN.":"<b>Ainda não existe PIN: cria-o agora.</b>"}</p>
     <button class="btn2 prim" id="definirPin">🔑 ${NV.temPin?"Mudar PIN":"Criar PIN"}</button>`:""}
     <h2>Recomeçar</h2>
     <button class="btn2" id="reset">↺ Repor tudo como veio</button>`],
@@ -4707,6 +4777,7 @@ async function novaSemana(){
 
 // ---------------- arranque
 function mostrarLogo(){ document.getElementById("logoTopo").src=E.config.logo; }
+function arrancar(){
 E=carregar();
 if(NUVEM) E=daNuvem(E);
 mostrarLogo(); avisoAmbiente();
@@ -4716,11 +4787,26 @@ if(NUVEM){
   msg("A ligar à base partilhada…");
   carregarNuvem(false).then(ok=>{
     render(); plano(); renderHist(); mostrarLogo();
-    msg(ok ? "Ligado à base partilhada. Tudo o que escreves fica disponível para quem tiver o link." : (NV.adormecida ? `A base de dados adormeceu: contacta ${CONTACTO_BASE}.` : "Sem ligação à base partilhada: estás a trabalhar só neste computador."), ok?"ok":"erro");
+    msg(ok ? "Ligado à base partilhada. Tudo o que escreves fica disponível para quem tiver o PIN." : (NV.adormecida ? `A base de dados adormeceu: contacta ${CONTACTO_BASE}.` : "Sem ligação à base partilhada: estás a trabalhar só neste computador."), ok?"ok":"erro");
   });
   // vai buscar alterações de outras pessoas de minuto a minuto (se não estiveres a meio de alterações)
   setInterval(()=>{ if(!NV.pendente && !NV.aGravar && document.getElementById("modal").hidden) carregarNuvem(true); }, 60000);
 }
+}
+// com base partilhada: primeiro o ecrã de entrada (o PIN lembrado ou desta sessão é confirmado sem perguntar)
+async function entrarAutomatico(){
+  if(!NUVEM){ arrancar(); return; }
+  E=JSON.parse(JSON.stringify(PADRAO));   // nada dos dados guardados aparece antes de entrar
+  if(NV.pin){
+    try{ if(await rpc("verificar_pin",{pin:NV.pin})){ arrancar(); return; } esquecerPin(); }
+    catch(e){
+      // sem ligação ou base adormecida: quem já tinha entrado neste computador continua a poder trabalhar
+      if(lerLocal("iebovar-pin")||(()=>{ try{ return sessionStorage.getItem("iebovar-pin"); }catch(x){ return null; } })()){ arrancar(); return; }
+    }
+  }
+  aoEntrar=arrancar; mostrarEntrada();
+}
+entrarAutomatico();
 // cópia guardada quando houve conflito com outra pessoa
 const copiaConflito=lerLocal("iebovar-copia-antes-conflito");
 if(copiaConflito){ const h=document.getElementById("hist"); if(h){ const bt=document.createElement("button"); bt.className="btn2"; bt.style.marginTop="10px"; bt.textContent="↩ Recuperar a minha cópia (de antes do conflito)"; bt.onclick=async()=>{ if(await perguntar("Substituir o que está na plataforma pela tua cópia de antes do conflito?")){ E=daNuvem(JSON.parse(copiaConflito)); porLocal("iebovar-copia-antes-conflito",null); render(); guardar(); bt.remove(); } }; h.after(bt); } }
