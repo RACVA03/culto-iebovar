@@ -164,6 +164,22 @@ ol.ordem .mini:disabled{opacity:.35;cursor:default}
 @media (max-width:1180px){body{flex-wrap:wrap;overflow:auto;height:auto}#centro{height:auto;flex:1 1 500px}#lateral{width:100%;flex:1 1 100%;height:auto;border-left:0}#nav{height:auto;min-height:100vh}}
 @media (max-width:760px){#nav{width:100%;flex:1 1 100%;min-height:0}#tabs{flex-direction:row;flex-wrap:wrap}#tabs .grupo{display:none}#centro{padding:14px}#centro .folha{padding:18px}}
 .colarmsg{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--azul-claro,#eef3ff);border:1px dashed #9db4e6;border-radius:12px;padding:12px 14px;margin-bottom:14px}.colarmsg .dica{flex:1;min-width:220px}
+#todos{position:fixed;inset:0;z-index:70;background:#F3F6FB;display:flex;flex-direction:column}
+#todos[hidden]{display:none}
+#todos .barra{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 20px;background:#fff;border-bottom:1px solid var(--linha)}
+#todos .barra b{font-size:17px;color:var(--azul)}
+#todos .barra .dica{flex:1;margin:0;min-width:200px}
+#todos .corpo{flex:1;overflow:auto;padding:16px 20px 40px}
+#todos .prev{margin:0;border:0;background:transparent;padding:0}
+#todos .secT{font-size:13px;font-weight:700;color:var(--azul);margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#todos .secT.mesma{color:transparent}
+#todos .faltas{background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+#zoomPrev .seta{position:fixed;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;border:0;background:rgba(255,255,255,.9);font-size:24px;cursor:pointer;color:var(--azul)}
+#zoomPrev .seta.esq{left:14px} #zoomPrev .seta.dir{right:14px}
+#zoomPrev .num{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;background:rgba(0,0,0,.45);padding:4px 12px;border-radius:20px}
+ul.versoes{list-style:none;padding:0;margin:10px 0 0}
+ul.versoes li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--linha);border-radius:10px;margin-bottom:8px;background:#fff;font-size:14px}
+ul.versoes li .dica{margin:2px 0 0}
 #entrada{position:fixed;inset:0;z-index:9000;background:linear-gradient(160deg,#0A3D7A 0%,#14213D 100%);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 #entrada[hidden]{display:none}
 #entrada .caixa{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:30px 28px;width:100%;max-width:400px}
@@ -224,6 +240,12 @@ ol.ordem .mini:disabled{opacity:.35;cursor:default}
       <button class="btn2" id="copiarTudo">📋 Copiar todos os dados</button>
       <button class="btn2" id="colarTudo">📥 Colar dados</button>
     </div>
+    <div id="versoesBox" hidden>
+      <h2 style="margin-top:22px">↩ Voltar atrás</h2>
+      <p class="dica">Se alguém apagou ou estragou alguma coisa sem querer, podes pôr a plataforma como estava antes. Enquanto se trabalha fica guardada uma versão de 10 em 10 minutos e sempre que muda a pessoa. Ao voltar atrás, o que está agora também fica na lista, por isso dá para desfazer.</p>
+      <button class="btn2" id="verVersoes">🔄 Atualizar a lista</button>
+      <ul class="versoes" id="listaVersoes"></ul>
+    </div>
     <h2 style="margin-top:22px">Últimos PowerPoints gerados</h2>
     <ul class="hist" id="hist"></ul>
     </section>
@@ -237,6 +259,7 @@ ol.ordem .mini:disabled{opacity:.35;cursor:default}
       <label><input type="radio" name="formato" value="pdf">PDF</label>
       <label><input type="radio" name="formato" value="ambos">Os dois</label>
     </div>
+    <button type="button" class="btn2" id="verTodos" style="width:100%;margin-top:10px">👁 Ver todos os slides antes de gerar</button>
     <p id="estado" style="margin:10px 0 0">Tudo o que escreves fica guardado neste computador.</p>
     <div class="pasta" id="pastaBox"><span>📁 Guardar em: <b id="pastaNome">pasta Transferências</b></span><button class="btn2" id="escolherPasta">Escolher pasta</button></div>
   </section>
@@ -289,7 +312,11 @@ ol.ordem .mini:disabled{opacity:.35;cursor:default}
   <p class="dica" id="sucDica"></p>
   <div class="acoes" style="justify-content:center;margin-top:14px"><button class="btn2 prim" id="sucOk" style="padding:12px 28px;font-size:16px">Fechar</button></div>
 </div></div>
-<div id="zoomPrev" hidden><canvas id="zoomCanvas" width="1600" height="900"></canvas></div>
+<div id="todos" hidden role="dialog" aria-modal="true" aria-labelledby="todosTit">
+  <div class="barra"><b id="todosTit">👁 Todos os slides</b><span class="dica" id="todosEstado"></span><button class="btn2 prim" id="todosFechar">✕ Fechar</button></div>
+  <div class="corpo"><div id="todosFaltas"></div><div class="prev"><div class="grelha" id="todosGrelha"></div></div></div>
+</div>
+<div id="zoomPrev" hidden><canvas id="zoomCanvas" width="1600" height="900"></canvas><button class="seta esq" id="zoomAnt" aria-label="Slide anterior">‹</button><button class="seta dir" id="zoomSeg" aria-label="Slide seguinte">›</button><span class="num" id="zoomNum"></span></div>
 <div id="modalBib" hidden role="dialog" aria-modal="true" aria-labelledby="bibTit"><div class="caixa">
   <h2 id="bibTit" style="margin:0 0 4px">Escolher da biblioteca</h2>
   <p class="dica" style="margin:0 0 8px">Toca numa música para a usar. A letra entra sozinha.</p>
@@ -4039,6 +4066,7 @@ function render(){
   document.getElementById("subSec").textContent = (INFO[tab]||{}).sub||"";
   document.getElementById("form").innerHTML = `<div class="sec on">${SEC[tab][1]()}</div>`;
   document.getElementById("secCopias").hidden = tab!=="copias";
+  if(tab==="copias" && NUVEM && NV.pin){ document.getElementById("versoesBox").hidden=false; if(!versoesVistas){ versoesVistas=true; carregarVersoes(); } }
   ligarFicheiros();
   renderVerif(V);
   renderEstilo();
@@ -4647,6 +4675,7 @@ async function pdfDosSlides(slides, aoAvancar){
 
 // ---------------- pré-visualização da mensagem (atualiza enquanto se escreve)
 let tPrev, nPrev=0, slidesPrev=[];
+function legendaDe(s){ const t=s.objs.find(o=>o.t==="txt"&&o.o.objectName==="titulo")||s.objs.find(o=>o.t==="txt"&&o.o.objectName==="verso")||s.objs.find(o=>o.t==="txt"&&!/^go\d/.test(o.o.objectName||""))||{}; return textoDe(t.text).replace(/\s+/g," ").trim().slice(0,48); }
 const textoDe = t => t==null ? "" : typeof t==="string" ? t : t.map(r=>typeof r==="string"?r:(r.text||"")).join("");
 function pedirPreview(ms){ clearTimeout(tPrev); tPrev=setTimeout(atualizarPreview, ms==null?1200:ms); }
 async function atualizarPreview(){
@@ -4657,18 +4686,79 @@ async function atualizarPreview(){
     if(eu!==nPrev || !document.getElementById("prevGrelha")) return;
     slidesPrev=r.slides;
     if(!r.slides.length){ gr.innerHTML=`<div class="desligado" style="grid-column:1/-1">Escreve o título da mensagem para veres os slides aqui.</div>`; est.textContent=""; return; }
-    gr.innerHTML=r.slides.map((s,i)=>`<div><canvas width="480" height="270" data-prev="${i}" aria-label="Slide ${i+1} da mensagem"></canvas><div class="leg">${i+1}. ${esc(textoDe((s.objs.find(o=>o.t==="txt"&&o.o.objectName==="titulo")||s.objs.find(o=>o.t==="txt"&&o.o.objectName==="verso")||s.objs.find(o=>o.t==="txt"&&!/^go\d/.test(o.o.objectName||""))||{}).text).slice(0,48))}</div></div>`).join("");
+    gr.innerHTML=r.slides.map((s,i)=>`<div><canvas width="480" height="270" data-prev="${i}" aria-label="Slide ${i+1} da mensagem"></canvas><div class="leg">${i+1}. ${esc(legendaDe(s))}</div></div>`).join("");
     for(const cv of gr.querySelectorAll("canvas[data-prev]")) await desenharSlide(cv.getContext("2d"), r.slides[+cv.dataset.prev], 480);
     est.textContent=`${r.slides.length} slide${r.slides.length>1?"s":""} · ${r.info.paletaNome}`;
   }catch(e){ console.error(e); if(eu===nPrev) est.textContent="Não consegui desenhar a pré-visualização ("+e.message+")."; }
 }
+let zoomLista=[], zoomI=0;
+async function abrirZoom(lista, i){
+  if(!lista.length) return; zoomLista=lista; zoomI=Math.max(0,Math.min(lista.length-1,i));
+  await desenharSlide(document.getElementById("zoomCanvas").getContext("2d"), lista[zoomI], 1600);
+  document.getElementById("zoomNum").textContent=`${zoomI+1} de ${lista.length}`;
+  document.getElementById("zoomAnt").hidden=zoomI===0; document.getElementById("zoomSeg").hidden=zoomI===lista.length-1;
+  document.getElementById("zoomPrev").hidden=false;
+}
 document.addEventListener("click", async e=>{
-  const cv=e.target.closest("canvas[data-prev]"); if(!cv) return;
-  const z=document.getElementById("zoomPrev"), zc=document.getElementById("zoomCanvas");
-  await desenharSlide(zc.getContext("2d"), slidesPrev[+cv.dataset.prev], 1600); z.hidden=false;
+  const cv=e.target.closest("canvas[data-prev],canvas[data-todo]"); if(!cv) return;
+  if(cv.dataset.todo!=null) abrirZoom(slidesTodos, +cv.dataset.todo); else abrirZoom(slidesPrev, +cv.dataset.prev);
 });
 document.getElementById("zoomPrev").onclick=()=>{ document.getElementById("zoomPrev").hidden=true; };
-document.addEventListener("keydown", e=>{ if(e.key==="Escape"){ document.getElementById("zoomPrev").hidden=true; } });
+document.getElementById("zoomAnt").onclick=e=>{ e.stopPropagation(); abrirZoom(zoomLista, zoomI-1); };
+document.getElementById("zoomSeg").onclick=e=>{ e.stopPropagation(); abrirZoom(zoomLista, zoomI+1); };
+document.addEventListener("keydown", e=>{
+  const z=document.getElementById("zoomPrev");
+  if(!z.hidden){ if(e.key==="ArrowRight"&&zoomI<zoomLista.length-1) abrirZoom(zoomLista, zoomI+1); else if(e.key==="ArrowLeft"&&zoomI>0) abrirZoom(zoomLista, zoomI-1); else if(e.key==="Escape") z.hidden=true; return; }
+  if(e.key==="Escape") fecharTodos();
+});
+// ---------------- todos os slides antes de gerar
+let slidesTodos=[], nTodos=0;
+function fecharTodos(){ nTodos++; document.getElementById("todos").hidden=true; }
+async function verTodos(){
+  const m=document.getElementById("todos"), gr=document.getElementById("todosGrelha"), est=document.getElementById("todosEstado"), fl=document.getElementById("todosFaltas");
+  const eu=++nTodos; m.hidden=false; gr.innerHTML=""; fl.innerHTML=""; est.textContent="A preparar os slides…";
+  document.getElementById("todosFechar").focus();
+  try{ const V=verificar().filter(v=>v.nivel==="erro"); if(V.length) fl.innerHTML=`<div class="faltas">⚠️ Ainda falta${V.length>1?"m":""} <b>${V.length}</b> coisa${V.length>1?"s":""} para poder gerar (vê a lista "Antes de gerar"). Os slides abaixo mostram como está agora.</div>`; }catch(e){}
+  try{
+    const r=await capturar(); if(eu!==nTodos) return;
+    slidesTodos=r.slides;
+    if(!r.slides.length){ gr.innerHTML=`<div class="desligado" style="grid-column:1/-1">Ainda não há slides: preenche a semana primeiro.</div>`; est.textContent=""; return; }
+    let html="", sec=null;
+    r.slides.forEach((s,i)=>{ const nova=s.secao!==sec; sec=s.secao; html+=`<div><div class="secT${nova?"":" mesma"}">${nova?esc(sec||""):"&nbsp;"}</div><canvas width="480" height="270" data-todo="${i}" aria-label="Slide ${i+1}"></canvas><div class="leg">${i+1}. ${esc(legendaDe(s))}</div></div>`; });
+    gr.innerHTML=html;
+    const cvs=[...gr.querySelectorAll("canvas[data-todo]")];
+    for(let k=0;k<cvs.length;k++){ if(eu!==nTodos) return; await desenharSlide(cvs[k].getContext("2d"), r.slides[k], 480); est.textContent=`A desenhar… ${k+1} de ${cvs.length}`; }
+    est.textContent=`${r.slides.length} slides · tema "${r.info.paletaNome}" · toca num slide para o ver em grande (as animações não aparecem aqui)`;
+  }catch(e){ console.error(e); if(eu===nTodos) est.textContent="Não consegui preparar os slides ("+e.message+")."; }
+}
+document.getElementById("verTodos").onclick=verTodos;
+document.getElementById("todosFechar").onclick=fecharTodos;
+// ---------------- voltar atrás (versões na base partilhada)
+let versoesVistas=false;
+const quandoLegivel = q => q ? new Date(q).toLocaleString("pt-PT",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
+async function carregarVersoes(){
+  const ul=document.getElementById("listaVersoes"); if(!ul) return;
+  ul.innerHTML='<li class="dica">A carregar…</li>';
+  try{
+    const l=await rpc("listar_versoes",{pin:NV.pin})||[];
+    ul.innerHTML = l.length ? l.map(v=>`<li><div><b>${esc(quandoLegivel(v.quando))}</b> · ${esc(v.quem||"alguém")}<div class="dica">Semana: ${v.data?esc(dataLegivel(v.data)):"sem data"}${v.mensagem?` · mensagem "${esc(v.mensagem)}"`:""}</div></div><button class="mini" data-restaurar="${v.id}" data-quando="${esc(quandoLegivel(v.quando))}">↩ Voltar a esta</button></li>`).join("")
+      : '<li class="dica">Ainda não há versões anteriores. Vão aparecendo à medida que se trabalha.</li>';
+  }catch(e){ ul.innerHTML=`<li class="dica">Não consegui ver as versões (${esc(e.message)}).</li>`; }
+}
+document.getElementById("verVersoes").onclick=carregarVersoes;
+document.addEventListener("click", async e=>{
+  const b=e.target.closest("[data-restaurar]"); if(!b) return;
+  const quando=b.dataset.quando;
+  if(!(await perguntar(`Voltar a como estava em ${quando}?\n\nA plataforma toda (semana, definições, biblioteca, semanas guardadas) fica como era nessa altura, para todas as pessoas.\n\nO que está agora também fica guardado na lista, por isso podes desfazer.`))) return;
+  if(NV.pendente){ await gravarNuvem(); if(NV.pendente){ avisar("Ainda há alterações por gravar e não consegui gravá-las. Tenta outra vez daqui a pouco."); return; } }
+  try{
+    await rpc("restaurar_versao",{pin:NV.pin, vid:+b.dataset.restaurar, quem:NV.nome||"alguém"});
+    NV.versao=-1; await carregarNuvem(false);
+    render(); plano(); renderHist(); mostrarLogo();
+    toast(`Voltaste a como estava em ${quando}.`);
+    carregarVersoes();
+  }catch(err){ avisar("Não consegui voltar atrás: "+err.message); }
+});
 
 // ---------------- formato do ficheiro
 const FORMATO_NOMES={pptx:"PowerPoint",pdf:"PDF",ambos:"PowerPoint e PDF"};
